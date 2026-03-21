@@ -1,0 +1,28 @@
+# Virtual environment
+venv/
+.venv/
+
+# Cache files (contain collected OSINT data about targets)
+.recon_cache_*.json
+*.recon_cache*
+~/.semantic_recon_cache.db
+
+# Reports (may contain sensitive findings)
+reports/
+*.html
+report.json
+
+# Environment / secrets
+.env
+*.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# IDE
+.vscode/
+.idea/

@@ -1,0 +1,44 @@
+target: "Company Name"
+domain: "company.com"
+
+sources:
+  github:
+    enabled: true
+    token: ""          # or set GITHUB_TOKEN env var
+  google:
+    enabled: true
+    delay_min: 2
+    delay_max: 5
+  wayback:
+    enabled: true
+  linkedin:
+    enabled: true
+  dns:
+    enabled: true
+  shodan:
+    enabled: true
+    api_key: ""        # or set SHODAN_API_KEY env var
+  github_secrets:
+    enabled: true
+  stackoverflow:
+    enabled: true
+
+llm:
+  provider: "anthropic"    # "anthropic" or "ollama"
+  model: "claude-sonnet-4-5"
+  ollama_model: "llama3"
+  ollama_url: "http://localhost:11434"
+
+output:
+  terminal: true
+  html: true
+  html_file: "./reports/report.html"
+  json: null             # e.g. "./reports/report.json"
+
+cve_lookup:
+  enabled: true          # auto-lookup CVEs for detected technologies
+
+cache:
+  enabled: true
+  ttl_static: 86400      # 24h for static data (DNS, crt.sh)
+  ttl_dynamic: 3600      # 1h for dynamic data (GitHub, Google)
