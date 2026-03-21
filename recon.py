@@ -46,6 +46,7 @@ Examples:
   python recon.py --config config.yaml
   python recon.py --target "ACME" --domain acme.com --sources github wayback google
   python recon.py --target "ACME" --domain acme.com --resume .recon_cache_acme.com.json
+  python recon.py --target "ACME" --domain acme.com --diff report_old.json --output report_new.json
         """
     )
     parser.add_argument("--config", default=None, help="Path to YAML config file")
@@ -79,6 +80,8 @@ Examples:
                         help="Skip collection, load raw data from a cache file")
     parser.add_argument("--no-cve", action="store_true", help="Skip CVE auto-lookup")
     parser.add_argument("--no-cache", action="store_true", help="Ignore collector cache")
+    parser.add_argument("--diff", default=None, metavar="FILE",
+                        help="Compare results with a previous JSON report and show what changed")
 
     args = parser.parse_args()
 
@@ -290,6 +293,18 @@ Examples:
             report.status(f"HTML report saved to {html_output}")
         except Exception as e:
             report.error(f"HTML report failed: {e}")
+
+    if args.diff:
+        try:
+            from analysis.diff_engine import load_json_report, compute_diff
+            prev = load_json_report(args.diff)
+            prev["_source_file"] = args.diff
+            diff_result = compute_diff(findings, prev)
+            report.print_diff(diff_result)
+        except FileNotFoundError:
+            report.error(f"Diff file not found: {args.diff}")
+        except Exception as e:
+            report.error(f"Diff failed: {e}")
 
 
 if __name__ == "__main__":

@@ -248,7 +248,11 @@ def generate_html_report(report, graph_data: dict = None, attack_paths: list = N
     high = sum(1 for f in all_findings if f.confidence == "HIGH")
     medium = sum(1 for f in all_findings if f.confidence == "MEDIUM")
     low = sum(1 for f in all_findings if f.confidence == "LOW")
-    cve_count = sum(len(f.cves_or_techniques) for f in all_findings)
+    cve_count = sum(
+        1 for f in all_findings
+        for c in f.cves_or_techniques
+        if c.upper().startswith("CVE-")
+    )
     score = report.security_maturity_score
     maturity_pct = score * 10
     maturity_color = "#ef4444" if score <= 3 else "#f59e0b" if score <= 6 else "#22c55e"

@@ -25,6 +25,7 @@ class Finding:
     evidence_sources: List[str]
     attack_relevance: str
     cves_or_techniques: List[str] = field(default_factory=list)
+    source_count: int = field(default=1)  # how many chunks/passes confirmed this
 
 
 @dataclass
@@ -194,6 +195,56 @@ class SemanticEngine:
         print(f"[DEBUG] All parse attempts failed. Raw response (first 800 chars):\n{response_text[:800]}")
         return {}
 
+    def _merge_chunk_findings(self, items: list) -> list:
+        """Merge findings from multiple chunks: group by title, merge sources/CVEs, boost confidence."""
+        CONF_RANK = {"HIGH": 3, "MEDIUM": 2, "LOW": 1}
+        CONF_BY_RANK = {3: "HIGH", 2: "MEDIUM", 1: "LOW"}
+
+        groups: dict = {}  # normalized_title → merged item dict
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            norm = item.get("title", "").strip().lower()
+            if not norm:
+                continue
+            if norm not in groups:
+                groups[norm] = dict(item)
+                groups[norm]["_count"] = 1
+                groups[norm]["evidence_sources"] = list(item.get("evidence_sources", []))
+                groups[norm]["cves_or_techniques"] = list(item.get("cves_or_techniques", []))
+            else:
+                existing = groups[norm]
+                existing["_count"] += 1
+                # Merge sources and CVEs (deduplicated)
+                existing["evidence_sources"] = list(set(
+                    existing["evidence_sources"] + item.get("evidence_sources", [])
+                ))
+                existing["cves_or_techniques"] = list(set(
+                    existing["cves_or_techniques"] + item.get("cves_or_techniques", [])
+                ))
+                # Keep highest confidence
+                cur_rank = CONF_RANK.get(existing.get("confidence", "LOW"), 1)
+                new_rank = CONF_RANK.get(item.get("confidence", "LOW"), 1)
+                if new_rank > cur_rank:
+                    existing["confidence"] = item["confidence"]
+                    existing["description"] = item.get("description", existing["description"])
+                    existing["inference_chain"] = item.get("inference_chain", existing["inference_chain"])
+                    existing["attack_relevance"] = item.get("attack_relevance", existing["attack_relevance"])
+
+        merged = []
+        for norm, item in groups.items():
+            count = item.pop("_count", 1)
+            item["source_count"] = count
+            # Confidence boost: seen in 2+ chunks → +1 level, 3+ → HIGH
+            cur_rank = CONF_RANK.get(item.get("confidence", "LOW"), 1)
+            if count >= 3:
+                item["confidence"] = "HIGH"
+            elif count == 2 and cur_rank < 3:
+                item["confidence"] = CONF_BY_RANK[min(3, cur_rank + 1)]
+            merged.append(item)
+
+        return merged
+
     def _findings_from_list(self, raw_list: list, category: str) -> List[Finding]:
         findings = []
         for item in raw_list:
@@ -207,7 +258,8 @@ class SemanticEngine:
                 inference_chain=item.get("inference_chain", ""),
                 evidence_sources=item.get("evidence_sources", []),
                 attack_relevance=item.get("attack_relevance", ""),
-                cves_or_techniques=item.get("cves_or_techniques", [])
+                cves_or_techniques=item.get("cves_or_techniques", []),
+                source_count=item.get("source_count", 1),
             ))
         return findings
 
@@ -280,17 +332,10 @@ class SemanticEngine:
             if result.get("security_maturity_score") is not None:
                 all_results["security_maturity_score"] = result["security_maturity_score"]
 
-        # Deduplicate by title
+        # Multi-chunk merge: deduplicate + confidence boost
         for key in ["tech_stack", "internal_tools", "employee_intel",
                     "security_posture", "attack_surface", "exposed_assets", "temporal_insights"]:
-            seen = set()
-            deduped = []
-            for item in all_results[key]:
-                title = item.get("title", "") if isinstance(item, dict) else ""
-                if title not in seen:
-                    seen.add(title)
-                    deduped.append(item)
-            all_results[key] = deduped
+            all_results[key] = self._merge_chunk_findings(all_results[key])
 
         return ReconReport(
             target=target,

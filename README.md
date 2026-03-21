@@ -48,6 +48,9 @@ python recon.py --config config.yaml
 
 # Specific sources only
 python recon.py --target "ACME" --domain acme.com --sources github wayback dns whois
+
+# Diff mode — compare two runs and show what changed
+python recon.py --target "ACME" --domain acme.com --output report_new.json --diff report_old.json
 ```
 
 ### All options
@@ -70,6 +73,7 @@ python recon.py --target "ACME" --domain acme.com --sources github wayback dns w
 --no-cve                Skip CVE auto-lookup
 --no-cache              Ignore SQLite cache
 --verbose               Show evidence sources in output
+--diff FILE             Compare with a previous JSON report and show what changed
 ```
 
 ---
@@ -109,14 +113,18 @@ All sources run **in parallel** via asyncio. Results are cached in SQLite (24h T
 After analysis, the engine automatically:
 - Looks up CVEs on NVD for detected technology versions
 - Builds a knowledge graph and identifies attack paths (networkx)
+- Merges findings across chunks: duplicates are consolidated, evidence sources combined, confidence boosted when multiple data chunks confirm the same finding
+- Shows a `source_count` badge (e.g. `×3 sources`) when a finding was confirmed by multiple independent data segments
 
 ---
 
 ## Output
 
-**Terminal** — color-coded Rich report with confidence levels, inference chains, CVEs
+**Terminal** — color-coded Rich report with confidence levels, inference chains, CVEs, source count badges
 
 **HTML report** (`--html report.html`) — interactive D3.js knowledge graph, attack paths, dark theme
+
+**Diff report** (`--diff previous.json`) — highlights new findings, removed findings, and confidence changes between two runs
 
 ---
 
@@ -140,9 +148,10 @@ config.yaml                     ← Example config file
 │   ├── whois_collector.py      ← WHOIS + DNS history
 │   └── async_runner.py         ← Parallel execution
 ├── analysis/
-│   ├── semantic_engine.py      ← LLM analysis → structured findings
+│   ├── semantic_engine.py      ← LLM analysis → structured findings + multi-chunk merge
 │   ├── correlation_engine.py   ← Knowledge graph + attack paths
-│   └── cve_lookup.py           ← NVD CVE auto-enrichment
+│   ├── cve_lookup.py           ← NVD CVE auto-enrichment
+│   └── diff_engine.py          ← Compare two runs, surface changes
 ├── output/
 │   ├── terminal.py             ← Rich terminal report
 │   └── html_report.py          ← Interactive D3.js HTML report
