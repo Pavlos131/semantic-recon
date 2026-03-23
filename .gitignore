@@ -26,3 +26,4 @@ __pycache__/
 # IDE
 .vscode/
 .idea/
+CLAUDE_CODE_BRIEFING.md
