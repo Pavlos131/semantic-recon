@@ -19,6 +19,7 @@ from collectors.stackoverflow_collector import StackOverflowCollector
 from collectors.paste_collector import PasteCollector
 from collectors.hibp_collector import HIBPCollector
 from collectors.whois_collector import WHOISCollector
+from collectors.techfingerprint_collector import TechFingerprintCollector
 from analysis.semantic_engine import SemanticEngine
 
 try:
@@ -58,7 +59,8 @@ Examples:
         "--sources",
         nargs="+",
         choices=["github", "google", "wayback", "linkedin", "dns", "shodan",
-                 "github_secrets", "stackoverflow", "paste", "hibp", "whois"],
+                 "github_secrets", "stackoverflow", "paste", "hibp", "whois",
+                 "techfingerprint"],
         default=None,
         help="Data sources to use"
     )
@@ -114,6 +116,7 @@ Examples:
     if args.sources:
         active_sources = args.sources
     else:
+        # techfingerprint is opt-in only (makes live HTTP requests to target)
         default_sources = ["github", "google", "wayback", "linkedin", "dns",
                            "shodan", "github_secrets", "stackoverflow", "paste", "hibp", "whois"]
         active_sources = [s for s in default_sources
@@ -204,6 +207,9 @@ Examples:
         if "whois" in active_sources:
             wh = WHOISCollector(domain, securitytrails_key=st_key)
             collectors_to_run.append(("whois", lambda: _cached_collect("whois", wh.collect)))
+        if "techfingerprint" in active_sources:
+            tf = TechFingerprintCollector(domain)
+            collectors_to_run.append(("techfingerprint", lambda: _cached_collect("techfingerprint", tf.collect)))
 
         # Run all collectors in parallel
         report.status(f"Running {len(collectors_to_run)} collectors in parallel...")
@@ -215,6 +221,7 @@ Examples:
             "linkedin": "LinkedIn", "dns": "DNS/crt.sh", "shodan": "Shodan",
             "github_secrets": "GitHub Secrets", "stackoverflow": "Stack Overflow",
             "paste": "Paste/Gist Scanner", "hibp": "HaveIBeenPwned", "whois": "WHOIS",
+            "techfingerprint": "Tech Fingerprinting",
         }
         for label, data in results.items():
             all_data.extend(data)

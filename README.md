@@ -49,6 +49,9 @@ python recon.py --config config.yaml
 # Specific sources only
 python recon.py --target "ACME" --domain acme.com --sources github wayback dns whois
 
+# Include tech fingerprinting (opt-in — makes live HTTP requests to target)
+python recon.py --target "ACME" --domain acme.com --sources github wayback techfingerprint
+
 # Diff mode — compare two runs and show what changed
 python recon.py --target "ACME" --domain acme.com --output report_new.json --diff report_old.json
 ```
@@ -93,6 +96,9 @@ python recon.py --target "ACME" --domain acme.com --output report_new.json --dif
 | **HaveIBeenPwned** | Email breach lookup for domain employees | optional ($3.50/mo) |
 | **WHOIS** | Registration history, DNS changes over time | optional (free tier) |
 | **Shodan** | Open ports, banners, software versions, known vulns | required |
+| **Tech Fingerprinting** | HTTP response headers, cookies, security headers, robots.txt | — |
+
+> **Tech Fingerprinting** is **opt-in only** (not in defaults). It makes live HTTP requests directly to the target. Enable explicitly with `--sources techfingerprint` or combined with others.
 
 All sources run **in parallel** via asyncio. Results are cached in SQLite (24h TTL).
 
@@ -143,10 +149,11 @@ config.yaml                     ← Example config file
 │   ├── shodan_collector.py
 │   ├── github_secrets_collector.py
 │   ├── stackoverflow_collector.py
-│   ├── paste_collector.py      ← Pastebin / GitHub Gist leak scanner
-│   ├── hibp_collector.py       ← HaveIBeenPwned breach lookup
-│   ├── whois_collector.py      ← WHOIS + DNS history
-│   └── async_runner.py         ← Parallel execution
+│   ├── paste_collector.py          ← Pastebin / GitHub Gist leak scanner
+│   ├── hibp_collector.py           ← HaveIBeenPwned breach lookup
+│   ├── whois_collector.py          ← WHOIS + DNS history
+│   ├── techfingerprint_collector.py ← HTTP headers, cookies, robots.txt (opt-in)
+│   └── async_runner.py             ← Parallel execution
 ├── analysis/
 │   ├── semantic_engine.py      ← LLM analysis → structured findings + multi-chunk merge
 │   ├── correlation_engine.py   ← Knowledge graph + attack paths
