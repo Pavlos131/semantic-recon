@@ -73,9 +73,10 @@ class CorrelationEngine:
             tid = self._add_entity(f.title, "technology", {"confidence": f.confidence})
             for cve in f.cves_or_techniques:
                 cid = self._add_entity(cve, "vulnerability")
-                self._add_relation(tid, cid, "has_vulnerability",
-                                   confidence=0.9 if f.confidence == "HIGH" else 0.5,
-                                   evidence=f.title)
+                conf = 0.9 if f.confidence == "HIGH" else 0.5
+                self._add_relation(tid, cid, "has_vulnerability", confidence=conf, evidence=f.title)
+                # Reverse edge so attack paths can traverse: attack_vector → vuln → technology
+                self._add_relation(cid, tid, "affects", confidence=conf, evidence=f.title)
 
         # Internal tools
         for f in report.internal_tools:
@@ -104,6 +105,7 @@ class CorrelationEngine:
             for cve in f.cves_or_techniques:
                 cid = self._add_entity(cve, "vulnerability")
                 self._add_relation(eid, cid, "exposed_by", confidence=0.8, evidence=f.title)
+                self._add_relation(cid, eid, "found_at", confidence=0.8, evidence=f.title)
 
         # Attack surface
         for f in report.attack_surface:
