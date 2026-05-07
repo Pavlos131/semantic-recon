@@ -30,6 +30,8 @@ class DNSCollector:
 
     def collect(self) -> list:
         self._crtsh_subdomains()
+        self._hackertarget_subdomains()
+        self._rapiddns_subdomains()
         self._dns_records()
         self._check_zone_transfer()
         return self.results
@@ -83,6 +85,45 @@ class DNSCollector:
                     "date": ""
                 })
 
+        time.sleep(1)
+
+    def _hackertarget_subdomains(self):
+        """Passive subdomain enumeration via HackerTarget API (free, no key needed)"""
+        r = self._get(f"https://api.hackertarget.com/hostsearch/?q={self.domain}")
+        if not r or "error" in r.text.lower()[:50]:
+            return
+        lines = [l.strip() for l in r.text.strip().splitlines() if self.domain in l]
+        if not lines:
+            return
+        subs = list({l.split(",")[0] for l in lines if "," in l})[:50]
+        if subs:
+            self.results.append({
+                "source": "dns_hackertarget",
+                "url": f"https://api.hackertarget.com/hostsearch/?q={self.domain}",
+                "text": f"HackerTarget subdomains for {self.domain} ({len(subs)} found):\n" +
+                        "\n".join(f"  - {s}" for s in subs),
+                "date": ""
+            })
+        time.sleep(1)
+
+    def _rapiddns_subdomains(self):
+        """Passive subdomain enumeration via RapidDNS (free)"""
+        r = self._get(f"https://rapiddns.io/subdomain/{self.domain}?full=1",
+                      timeout=10)
+        if not r:
+            return
+        import re
+        found = list(set(re.findall(
+            rf'[\w\-]+\.{re.escape(self.domain)}', r.text
+        )))[:50]
+        if found:
+            self.results.append({
+                "source": "dns_rapiddns",
+                "url": f"https://rapiddns.io/subdomain/{self.domain}",
+                "text": f"RapidDNS subdomains for {self.domain} ({len(found)} found):\n" +
+                        "\n".join(f"  - {s}" for s in found),
+                "date": ""
+            })
         time.sleep(1)
 
     def _dns_records(self):
