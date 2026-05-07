@@ -40,6 +40,12 @@ python recon.py --target "Cloudflare" --domain cloudflare.com --llm ollama --oll
 # HTML report
 python recon.py --target "Tesla" --domain tesla.com --html report.html
 
+# Markdown report (for pentest docs)
+python recon.py --target "Tesla" --domain tesla.com --md report.md
+
+# All outputs at once
+python recon.py --target "Tesla" --domain tesla.com --html report.html --md report.md --output report.json
+
 # Resume after crash (skip collection)
 python recon.py --target "Tesla" --domain tesla.com --resume .recon_cache_tesla.com.json
 
@@ -48,6 +54,10 @@ python recon.py --config config.yaml
 
 # Specific sources only
 python recon.py --target "ACME" --domain acme.com --sources github wayback dns whois
+
+# Full passive scan (all sources, no direct target contact)
+python recon.py --target "ACME" --domain acme.com \
+  --sources github google wayback linkedin dns shodan github_secrets stackoverflow paste hibp whois
 
 # Include tech fingerprinting (opt-in — makes live HTTP requests to target)
 python recon.py --target "ACME" --domain acme.com --sources github wayback techfingerprint
@@ -71,6 +81,7 @@ python recon.py --target "ACME" --domain acme.com --output report_new.json --dif
 --hibp-key              HaveIBeenPwned API key
 --securitytrails-key    SecurityTrails API key (WHOIS history)
 --html                  Save interactive HTML report
+--md                    Save Markdown report (for pentest docs)
 --output                Save JSON report
 --resume FILE           Skip collection, load from cache file
 --no-cve                Skip CVE auto-lookup
@@ -89,7 +100,7 @@ python recon.py --target "ACME" --domain acme.com --output report_new.json --dif
 | **Google Dorks** | Tech stack hints, job postings, exposed files | — |
 | **Wayback Machine** | Historical snapshots, deleted pages, old robots.txt | — |
 | **LinkedIn** | Employee roles, job postings (via Google) | — |
-| **DNS / crt.sh** | Subdomains from certificate transparency, MX/TXT records | — |
+| **DNS / crt.sh / HackerTarget / RapidDNS** | Subdomains from 3 passive sources, MX/TXT/SPF/DMARC records | — |
 | **GitHub Secrets** | Leaked API keys, tokens, passwords in public repos | optional |
 | **Stack Overflow** | Internal tool references from employee questions | — |
 | **Paste / Gist** | Leaked configs/credentials on paste sites | optional |
@@ -119,16 +130,20 @@ All sources run **in parallel** via asyncio. Results are cached in SQLite (24h T
 After analysis, the engine automatically:
 - Looks up CVEs on NVD for detected technology versions
 - Builds a knowledge graph and identifies attack paths (networkx)
-- Merges findings across chunks: duplicates are consolidated, evidence sources combined, confidence boosted when multiple data chunks confirm the same finding
-- Shows a `source_count` badge (e.g. `×3 sources`) when a finding was confirmed by multiple independent data segments
+- Merges findings across chunks: duplicates consolidated, evidence combined, confidence boosted
+- Assigns a **Risk Score (0–10)** per finding based on confidence, CVE count, and severity keywords
+- Shows CVE/technique descriptions inline (not just IDs)
+- Shows a `source_count` badge (e.g. `×3 sources`) when confirmed by multiple data segments
 
 ---
 
 ## Output
 
-**Terminal** — color-coded Rich report with confidence levels, inference chains, CVEs, source count badges
+**Terminal** — color-coded Rich report with confidence levels, risk scores, CVE descriptions, source count badges
 
-**HTML report** (`--html report.html`) — interactive D3.js knowledge graph, attack paths, dark theme
+**HTML report** (`--html report.html`) — interactive D3.js knowledge graph, attack paths, risk badges, dark theme
+
+**Markdown report** (`--md report.md`) — clean pentest-ready document with tables and inline CVE descriptions
 
 **Diff report** (`--diff previous.json`) — highlights new findings, removed findings, and confidence changes between two runs
 
@@ -161,7 +176,8 @@ config.yaml                     ← Example config file
 │   └── diff_engine.py          ← Compare two runs, surface changes
 ├── output/
 │   ├── terminal.py             ← Rich terminal report
-│   └── html_report.py          ← Interactive D3.js HTML report
+│   ├── html_report.py          ← Interactive D3.js HTML report
+│   └── markdown_report.py      ← Markdown export for pentest docs
 └── utils/
     └── cache.py                ← SQLite cache with TTL
 ```
