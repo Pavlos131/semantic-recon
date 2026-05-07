@@ -69,6 +69,7 @@ Examples:
     parser.add_argument("--securitytrails-key", default=None, help="SecurityTrails API key (for WHOIS history)")
     parser.add_argument("--output", default=None, help="Save JSON report to file")
     parser.add_argument("--html", default=None, help="Save HTML report to file (e.g. report.html)")
+    parser.add_argument("--md", default=None, help="Save Markdown report to file (e.g. report.md)")
     parser.add_argument("--verbose", action="store_true", help="Show raw collected data")
     parser.add_argument("--llm", choices=["anthropic", "ollama"], default=None,
                         help="LLM backend to use")
@@ -130,6 +131,7 @@ Examples:
     out_cfg = cfg.get("output", {})
     html_output = args.html or (out_cfg.get("html_file") if out_cfg.get("html") else None)
     json_output = args.output or out_cfg.get("json")
+    md_output = args.md or out_cfg.get("md")
 
     cve_enabled = (not args.no_cve) and cfg.get("cve_lookup", {}).get("enabled", True)
     cache_enabled = (not args.no_cache) and cfg.get("cache", {}).get("enabled", True)
@@ -218,7 +220,7 @@ Examples:
 
         label_names = {
             "github": "GitHub", "google": "Google Dorks", "wayback": "Wayback Machine",
-            "linkedin": "LinkedIn", "dns": "DNS/crt.sh", "shodan": "Shodan",
+            "linkedin": "LinkedIn", "dns": "DNS/crt.sh+HackerTarget+RapidDNS", "shodan": "Shodan",
             "github_secrets": "GitHub Secrets", "stackoverflow": "Stack Overflow",
             "paste": "Paste/Gist Scanner", "hibp": "HaveIBeenPwned", "whois": "WHOIS",
             "techfingerprint": "Tech Fingerprinting",
@@ -300,6 +302,14 @@ Examples:
             report.status(f"HTML report saved to {html_output}")
         except Exception as e:
             report.error(f"HTML report failed: {e}")
+
+    if md_output:
+        try:
+            from output.markdown_report import save_markdown_report
+            save_markdown_report(findings, md_output)
+            report.status(f"Markdown report saved to {md_output}")
+        except Exception as e:
+            report.error(f"Markdown report failed: {e}")
 
     if args.diff:
         try:
