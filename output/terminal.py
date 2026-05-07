@@ -84,7 +84,10 @@ class TerminalReport:
         sc = getattr(finding, "source_count", 1)
         if sc >= 2:
             source_badge = f"  [dim](×{sc} sources)[/dim]"
-        self.console.print(f"\n  [{index}] [bold]{finding.title}[/bold]  {conf_icon} [{conf_color}]{finding.confidence}[/{conf_color}]{source_badge}")
+        risk = getattr(finding, "risk_score", 0.0)
+        risk_color = "red" if risk >= 7 else "yellow" if risk >= 4 else "dim"
+        risk_badge = f"  [{risk_color}]Risk {risk}/10[/{risk_color}]"
+        self.console.print(f"\n  [{index}] [bold]{finding.title}[/bold]  {conf_icon} [{conf_color}]{finding.confidence}[/{conf_color}]{risk_badge}{source_badge}")
 
         # Description
         self.console.print(f"      [white]{finding.description}[/white]")

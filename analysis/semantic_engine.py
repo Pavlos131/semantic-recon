@@ -27,6 +27,7 @@ class Finding:
     cves_or_techniques: List[str] = field(default_factory=list)
     cve_descriptions: dict = field(default_factory=dict)  # id → short description
     source_count: int = field(default=1)  # how many chunks/passes confirmed this
+    risk_score: float = field(default=0.0)  # 0-10
 
 
 @dataclass
@@ -273,18 +274,22 @@ class SemanticEngine:
                             cve_descs[eid] = entry["description"]
                 elif isinstance(entry, str) and entry:
                     cve_ids.append(entry)
-            findings.append(Finding(
+            confidence = item.get("confidence", "LOW")
+            attack_rel = item.get("attack_relevance", "")
+            finding = Finding(
                 category=item.get("category", category),
                 title=item.get("title", "Untitled"),
                 description=item.get("description", ""),
-                confidence=item.get("confidence", "LOW"),
+                confidence=confidence,
                 inference_chain=item.get("inference_chain", ""),
                 evidence_sources=item.get("evidence_sources", []),
-                attack_relevance=item.get("attack_relevance", ""),
+                attack_relevance=attack_rel,
                 cves_or_techniques=cve_ids,
                 cve_descriptions=cve_descs,
                 source_count=item.get("source_count", 1),
-            ))
+                risk_score=_calculate_risk_score(confidence, cve_ids, attack_rel),
+            )
+            findings.append(finding)
         return findings
 
     def _call_ollama(self, prompt: str) -> str:
@@ -374,3 +379,16 @@ class SemanticEngine:
             summary=all_results["summary"],
             security_maturity_score=all_results["security_maturity_score"]
         )
+
+
+def _calculate_risk_score(confidence: str, cves: list, attack_relevance: str) -> float:
+    """Score 0-10: confidence + CVE presence + severity keywords in attack relevance."""
+    conf_score = {"HIGH": 4.0, "MEDIUM": 2.5, "LOW": 1.0}.get(confidence, 1.0)
+    cve_bonus = min(len([c for c in cves if c.upper().startswith("CVE-")]) * 0.8, 3.0)
+    rel_lower = attack_relevance.lower()
+    sev_bonus = 0.0
+    if any(k in rel_lower for k in ("unauthenticated", "rce", "remote code execution", "critical")):
+        sev_bonus += 2.0
+    if any(k in rel_lower for k in ("privilege escalation", "data exfiltration", "lateral movement")):
+        sev_bonus += 1.0
+    return round(min(10.0, conf_score + cve_bonus + sev_bonus), 1)

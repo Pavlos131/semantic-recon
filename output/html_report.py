@@ -67,6 +67,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   .badge-HIGH {{ background: #7f1d1d; color: #fca5a5; }}
   .badge-MEDIUM {{ background: #78350f; color: #fde68a; }}
   .badge-LOW {{ background: #1e3a5f; color: #93c5fd; }}
+  .risk-badge {{ font-size: 0.7rem; padding: 2px 8px; border-radius: 999px; font-weight: bold; margin-left: 6px; }}
+  .risk-high {{ background: #450a0a; color: #fca5a5; }}
+  .risk-medium {{ background: #422006; color: #fde68a; }}
+  .risk-low {{ background: #172554; color: #93c5fd; }}
   .finding p {{ font-size: 0.85rem; color: #94a3b8; margin-bottom: 6px; line-height: 1.5; }}
   .inference {{ font-size: 0.8rem; color: #64748b; font-style: italic; }}
   .attack {{ font-size: 0.8rem; color: #fbbf24; }}
@@ -214,6 +218,9 @@ function initGraph() {{
 
 def _finding_html(finding) -> str:
     badge = f'<span class="badge badge-{finding.confidence}">{finding.confidence}</span>'
+    risk = getattr(finding, "risk_score", 0.0)
+    risk_cls = "risk-high" if risk >= 7 else "risk-medium" if risk >= 4 else "risk-low"
+    risk_badge = f'<span class="risk-badge {risk_cls}">Risk {risk}/10</span>'
     cves = ""
     if finding.cves_or_techniques:
         descs = getattr(finding, "cve_descriptions", {})
@@ -231,7 +238,7 @@ def _finding_html(finding) -> str:
 <div class="finding">
   <div class="finding-header">
     <span class="finding-title">{finding.title}</span>
-    {badge}
+    <span>{badge}{risk_badge}</span>
   </div>
   <p>{finding.description}</p>
   {inference}
