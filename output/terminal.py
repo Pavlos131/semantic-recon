@@ -99,8 +99,15 @@ class TerminalReport:
 
         # CVEs/Techniques
         if finding.cves_or_techniques:
-            tags = " ".join(f"[bold red]{t}[/bold red]" for t in finding.cves_or_techniques)
-            self.console.print(f"      🔓 {tags}")
+            descs = getattr(finding, "cve_descriptions", {})
+            lines = []
+            for t in finding.cves_or_techniques:
+                desc = descs.get(t, "")
+                if desc:
+                    lines.append(f"[bold red]{t}[/bold red] [dim]— {desc}[/dim]")
+                else:
+                    lines.append(f"[bold red]{t}[/bold red]")
+            self.console.print(f"      🔓 " + "  ".join(lines))
 
         # Sources
         if finding.evidence_sources and self.verbose:
@@ -249,6 +256,7 @@ class TerminalReport:
                 "evidence_sources": f.evidence_sources,
                 "attack_relevance": f.attack_relevance,
                 "cves_or_techniques": f.cves_or_techniques,
+                "cve_descriptions": getattr(f, "cve_descriptions", {}),
                 "source_count": getattr(f, "source_count", 1),
             }
 

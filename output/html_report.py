@@ -71,7 +71,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   .inference {{ font-size: 0.8rem; color: #64748b; font-style: italic; }}
   .attack {{ font-size: 0.8rem; color: #fbbf24; }}
   .cves {{ display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }}
-  .cve-tag {{ background: #450a0a; color: #fca5a5; font-size: 0.7rem; padding: 2px 8px; border-radius: 4px; border: 1px solid #7f1d1d; }}
+  .cve-tag {{ background: #450a0a; color: #fca5a5; font-size: 0.7rem; padding: 2px 8px; border-radius: 4px; border: 1px solid #7f1d1d; cursor: default; }}
+  .cve-entry {{ display: flex; align-items: baseline; gap: 6px; }}
+  .cve-desc {{ font-size: 0.72rem; color: #64748b; font-style: italic; }}
   #graph-container {{ width: 100%; height: 600px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; overflow: hidden; position: relative; }}
   #graph-legend {{ display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }}
   .legend-item {{ display: flex; align-items: center; gap: 6px; font-size: 0.75rem; color: #94a3b8; }}
@@ -214,8 +216,15 @@ def _finding_html(finding) -> str:
     badge = f'<span class="badge badge-{finding.confidence}">{finding.confidence}</span>'
     cves = ""
     if finding.cves_or_techniques:
-        tags = "".join(f'<span class="cve-tag">{c}</span>' for c in finding.cves_or_techniques)
-        cves = f'<div class="cves">{tags}</div>'
+        descs = getattr(finding, "cve_descriptions", {})
+        entries = []
+        for c in finding.cves_or_techniques:
+            desc = descs.get(c, "")
+            tooltip = f' title="{desc}"' if desc else ""
+            tag = f'<span class="cve-tag"{tooltip}>{c}</span>'
+            desc_html = f'<span class="cve-desc">— {desc}</span>' if desc else ""
+            entries.append(f'<div class="cve-entry">{tag}{desc_html}</div>')
+        cves = f'<div class="cves">{"".join(entries)}</div>'
     inference = f'<p class="inference">💭 {finding.inference_chain}</p>' if finding.inference_chain else ""
     attack = f'<p class="attack">⚡ {finding.attack_relevance}</p>' if finding.attack_relevance else ""
     return f"""

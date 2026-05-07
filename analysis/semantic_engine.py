@@ -25,6 +25,7 @@ class Finding:
     evidence_sources: List[str]
     attack_relevance: str
     cves_or_techniques: List[str] = field(default_factory=list)
+    cve_descriptions: dict = field(default_factory=dict)  # id → short description
     source_count: int = field(default=1)  # how many chunks/passes confirmed this
 
 
@@ -74,7 +75,10 @@ Produce a comprehensive structured analysis. Return ONLY valid JSON with this ex
       "inference_chain": "step by step reasoning",
       "evidence_sources": ["source1", "source2"],
       "attack_relevance": "string",
-      "cves_or_techniques": ["CVE-XXXX-XXXX", "T1234"]
+      "cves_or_techniques": [
+        {{"id": "CVE-XXXX-XXXX", "description": "one-line explanation of what this CVE/technique means for this specific finding"}},
+        {{"id": "T1234", "description": "one-line explanation"}}
+      ]
     }}
   ],
   "internal_tools": [...same structure...],
@@ -222,6 +226,10 @@ class SemanticEngine:
                 existing["cves_or_techniques"] = list(set(
                     existing["cves_or_techniques"] + item.get("cves_or_techniques", [])
                 ))
+                # Merge descriptions
+                existing.setdefault("cve_descriptions", {}).update(
+                    item.get("cve_descriptions", {})
+                )
                 # Keep highest confidence
                 cur_rank = CONF_RANK.get(existing.get("confidence", "LOW"), 1)
                 new_rank = CONF_RANK.get(item.get("confidence", "LOW"), 1)
@@ -250,6 +258,21 @@ class SemanticEngine:
         for item in raw_list:
             if not isinstance(item, dict):
                 continue
+            # cves_or_techniques can be:
+            #   old format: ["CVE-XXXX", "T1234"]
+            #   new format: [{"id": "CVE-XXXX", "description": "..."}]
+            raw_cves = item.get("cves_or_techniques", [])
+            cve_ids = []
+            cve_descs = dict(item.get("cve_descriptions", {}))
+            for entry in raw_cves:
+                if isinstance(entry, dict):
+                    eid = entry.get("id", "")
+                    if eid:
+                        cve_ids.append(eid)
+                        if entry.get("description"):
+                            cve_descs[eid] = entry["description"]
+                elif isinstance(entry, str) and entry:
+                    cve_ids.append(entry)
             findings.append(Finding(
                 category=item.get("category", category),
                 title=item.get("title", "Untitled"),
@@ -258,7 +281,8 @@ class SemanticEngine:
                 inference_chain=item.get("inference_chain", ""),
                 evidence_sources=item.get("evidence_sources", []),
                 attack_relevance=item.get("attack_relevance", ""),
-                cves_or_techniques=item.get("cves_or_techniques", []),
+                cves_or_techniques=cve_ids,
+                cve_descriptions=cve_descs,
                 source_count=item.get("source_count", 1),
             ))
         return findings
