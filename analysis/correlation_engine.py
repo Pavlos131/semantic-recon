@@ -157,6 +157,28 @@ class CorrelationEngine:
                     except (nx.NetworkXNoPath, nx.NodeNotFound):
                         continue
 
+        # Fallback: direct paths from attack_vector/endpoint to service/technology
+        if not paths:
+            for ext in external_nodes:
+                for internal in internal_nodes:
+                    try:
+                        if nx.has_path(self.graph, ext, internal):
+                            path = nx.shortest_path(self.graph, ext, internal)
+                            risk = _calculate_risk(self.graph, path)
+                            relations = [
+                                self.graph[path[i]][path[i+1]].get("relation", "→")
+                                for i in range(len(path) - 1)
+                            ]
+                            labels = [self.entities[n].label for n in path if n in self.entities]
+                            paths.append(AttackPath(
+                                nodes=path,
+                                relations=relations,
+                                description=" → ".join(labels),
+                                risk_score=risk
+                            ))
+                    except (nx.NetworkXNoPath, nx.NodeNotFound):
+                        continue
+
         # Deduplicate and sort by risk
         seen = set()
         unique = []
